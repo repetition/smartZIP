@@ -36,12 +36,12 @@ public class Main {
     //解压文件路径
     public static final String ROOT_Path = "F:\\ThinkWin\\ThinkWinCRV3.5.0\\ROOT.war";
     //目标文件夹
-    public static final String ROOT_OUT_Path = "F:\\ThinkWin\\ThinkWinCRV3.5.0\\tomcat\\webapps\\ROOT";
+    public static final String ROOT_OUT_Path = "F:\\ThinkWin\\ThinkWinCRV3.5.0\\webapps\\ROOT";
     //配置文件路径
     public static final String ROOT_Spring_Path = ROOT_OUT_Path + "\\WEB-INF\\classes\\config\\spring\\spring.properties";
     public static final String ROOT_Publish_Path = ROOT_OUT_Path + "\\WEB-INF\\classes\\config\\publish.cfg.xml";
 
-    public static void main(String[] args) throws FileNotFoundException {
+    public static void main(String[] args) {
 
 
         // showWindow();
@@ -95,6 +95,9 @@ public class Main {
         private final JTextField mTextInput_unRoot;
         private final JButton mBTUnSelect;
         private final JButton mBTUnFile;
+        private final JLabel mJLabelDelete;
+        private final JRadioButton mJRadioBTDelete;
+        private final JRadioButton mJRadioBTUnDelete;
 
         public MyFlowLayout() {
 
@@ -114,19 +117,39 @@ public class Main {
             mTextInput_unRoot = new JTextField(30);
             mTextInput_unRoot.setText("F:\\ThinkWin\\ThinkWinCRV3.5.0\\webapps\\ROOT");
             mBTUnSelect = new JButton("选择");
-            mBTUnFile = new JButton("解压");
             jPanelUn.setLayout(new FlowLayout(FlowLayout.LEFT));
             jPanelUn.add(jLabelUn);
             jPanelUn.add(mTextInput_unRoot);
             jPanelUn.add(mBTUnSelect);
-            jPanelUn.add(mBTUnFile);
+
+            JPanel jPanelUnSetting = new JPanel();
+            mJLabelDelete = new JLabel("是否删除ROOT文件夹：");
+            mBTUnFile = new JButton("解压");
+            ButtonGroup radioGroup = new ButtonGroup();
+            mJRadioBTDelete = new JRadioButton();
+            mJRadioBTDelete.setText("删除");
+            mJRadioBTDelete.setSelected(true);
+            mJRadioBTUnDelete = new JRadioButton();
+            mJRadioBTUnDelete.setText("不删除");
+            radioGroup.add(mJRadioBTDelete);
+            radioGroup.add(mJRadioBTUnDelete);
+
+            jPanelUnSetting.add(mJLabelDelete);
+            jPanelUnSetting.add(mJRadioBTDelete);
+            jPanelUnSetting.add(mJRadioBTUnDelete);
+            jPanelUnSetting.add(mBTUnFile);
 
 
             // this.setContentPane(jPanel);
             //  this.setContentPane(jPanelUn);
             this.setLayout(new FlowLayout(FlowLayout.LEFT));
-            this.add(jPanel);
-            this.add(jPanelUn);
+            this.getContentPane().add(jPanel);
+            this.getContentPane().add(jPanelUn);
+            this.getContentPane().add(jPanelUnSetting);
+
+            // this.add(jPanel);
+            // this.add(jPanelUn);
+            //this.add(jPanelUnSetting);
             //4. 设置窗体属性
             this.setTitle("演示流布局管理器"); //设置标题
             this.setSize(600, 300);       //设置
@@ -142,22 +165,22 @@ public class Main {
         }
 
         @Override
-        public void actionPerformed(ActionEvent e) {
-            if (e.getSource() == mBTSelect) {
+        public void actionPerformed(ActionEvent event) {
+            if (event.getSource() == mBTSelect) {
                 String selectPath = showSelectPath(JFileChooser.FILES_ONLY, new FileNameExtensionFilter("ROOT.war(*.war)", "war"), "F:\\ThinkWin");
                 mTextInput_rooTwar.setText(selectPath);
             }
-            if (e.getSource() == mBTUnSelect) {
+            if (event.getSource() == mBTUnSelect) {
 
                 String selectPath = showSelectPath(JFileChooser.DIRECTORIES_ONLY, null, "F:\\ThinkWin");
                 mTextInput_unRoot.setText(selectPath);
             }
-            if (e.getSource() == mBTUnFile) {
+            if (event.getSource() == mBTUnFile) {
 
                 String rootWarPath = mTextInput_rooTwar.getText();
                 String unRootWarPath = mTextInput_unRoot.getText();
-                log.info(rootWarPath + "\n" + unRootWarPath);
-
+                log.info("ROOT.war路径 - " + rootWarPath);
+                log.info("解压路径 - " + rootWarPath);
                 if (null == rootWarPath || rootWarPath.trim().equals("")) {
                     JOptionPane.showMessageDialog(mTextInput_rooTwar, "没有选择ROOT.war路径", "ROOT.war路径为空", JOptionPane.WARNING_MESSAGE);
                     return;
@@ -167,46 +190,96 @@ public class Main {
                     return;
                 }
 
-                JOptionPane.showMessageDialog(mTextInput_rooTwar, "正在解压", "解压中", JOptionPane.PLAIN_MESSAGE);
+                //    JOptionPane.showMessageDialog(mTextInput_rooTwar, "正在解压", "解压中", JOptionPane.PLAIN_MESSAGE);
 
-
-                try {
-                    ZipFile zipFile = new ZipFile(rootWarPath, Charset.forName("GBK"));
-                    log.info(zipFile.getName());
-                    long start = System.currentTimeMillis();
-                    Enumeration<? extends ZipEntry> entries = zipFile.entries();
-
-                    while (entries.hasMoreElements()) {
-                        ZipEntry zipEntry = entries.nextElement();
-                        String zipEntryName = zipEntry.getName();
-
-                        File decDir = new File(unRootWarPath);
-                        if (!decDir.exists()) {
-                            decDir.mkdirs();
-                        }
-                        InputStream zipIS = zipFile.getInputStream(zipEntry);
-
-                        FileOutputStream decFOS = new FileOutputStream(decDir.getAbsoluteFile()+"\\"+zipEntry.getName());
-                        byte[] bytes = new byte[1024 * 8];
-                        int len;
-                        while ((len = zipIS.read(bytes)) != -1) {
-                            decFOS.write(bytes, 0, len);
-                        }
-                        decFOS.flush();
-                        decFOS.close();
-                        zipIS.close();
-                        // log.info(zipEntryName);
-                    }
-                    long end = System.currentTimeMillis();
-                    log.info("解压完毕 - 耗时:" + (end - start) + "ms");
-                } catch (IOException e1) {
-                    e1.printStackTrace();
+                if (mJRadioBTDelete.isSelected()) {
+                    deleteAllFile(unRootWarPath);
                 }
-
-
+                if (mJRadioBTUnDelete.isSelected()) {
+                    // unZIP(rootWarPath, unRootWarPath);
+                }
             }
+        }
 
+        /**
+         * 递归删除文件
+         *
+         * @param unRootWarPath
+         */
+        private void deleteAllFile(String unRootWarPath) {
+            File ROOT_file = new File(unRootWarPath);
+            File[] listFiles = ROOT_file.listFiles();
+            for (File file : listFiles) {
+                if (file.isDirectory()) {
+                    deleteAllFile(file.getAbsolutePath());
+                    //空文件夹直接删除
+                    file.delete();
+                    log.info(file.getAbsolutePath() + "文件夹删除成功!");
+                }
+                //如果是文件直接删除
+                if (file.isFile()) {
+                    file.delete();
+                    log.info(file.getAbsolutePath() + "文件删除成功!");
+                }
+            }
+            //删除root目录
+            if (ROOT_file.listFiles().length == 0) {
+                ROOT_file.delete();
+                log.info(ROOT_file.getAbsolutePath() + "文件删除成功!");
+            }
+        }
 
+        /**
+         * 解压文件
+         *
+         * @param rootWarPath   ROOT.war路径
+         * @param unRootWarPath ROOT.war解压路径路径
+         */
+        private void unZIP(String rootWarPath, String unRootWarPath) {
+            try {
+                ZipFile zipFile = new ZipFile(rootWarPath, Charset.forName("GBK"));
+                long start = System.currentTimeMillis();
+                Enumeration<? extends ZipEntry> entries = zipFile.entries();
+                int size = zipFile.size();
+                log.info("文件数：" + size);
+                while (entries.hasMoreElements()) {
+                    ZipEntry zipEntry = entries.nextElement();
+                    String zipEntryName = zipEntry.getName();
+
+                    File decDir = new File(unRootWarPath);
+                    if (!decDir.exists()) {
+                        decDir.mkdirs();
+                    }
+                    File outFile = new File(decDir.getAbsoluteFile() + "\\" + zipEntry.getName());
+                    if (!outFile.getParentFile().exists()) {
+                        outFile.getParentFile().mkdirs();
+                    }
+                    //解压文件如果是文件夹则创建文件夹
+                    if (zipEntry.isDirectory()) {
+                        outFile.mkdirs();
+                        //如果是文件夹则创建文件夹跳出循环
+                        continue;
+                    }
+                    //解压文件如果是文件则创建文件写入
+                    InputStream zipIS = zipFile.getInputStream(zipEntry);
+                    outFile.createNewFile();
+                    FileOutputStream decFOS = new FileOutputStream(outFile);
+                    byte[] bytes = new byte[1024 * 8];
+                    int len;
+                    while ((len = zipIS.read(bytes)) != -1) {
+                        decFOS.write(bytes, 0, len);
+                    }
+                    decFOS.flush();
+                    decFOS.close();
+                    zipIS.close();
+                    // log.info(zipEntryName);
+                }
+                long end = System.currentTimeMillis();
+                log.info("解压完毕 - 耗时:" + (end - start) + "ms");
+            } catch (IOException e) {
+                e.printStackTrace();
+                log.error("解压异常！- " + e.getMessage());
+            }
         }
 
 
