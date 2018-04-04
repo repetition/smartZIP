@@ -14,16 +14,20 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Enumeration;
+import java.util.*;
 import java.util.List;
-import java.util.Properties;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -31,6 +35,8 @@ import java.util.zip.ZipFile;
  * Created by RJYF-ZhangBo on 2018/1/23.
  */
 public class Main {
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
+
     //解压工具路径
     public static final String haoZIP_Path = "D:\\HaoZip\\HaoZipC.exe";
     //解压文件路径
@@ -193,10 +199,18 @@ public class Main {
                 //    JOptionPane.showMessageDialog(mTextInput_rooTwar, "正在解压", "解压中", JOptionPane.PLAIN_MESSAGE);
 
                 if (mJRadioBTDelete.isSelected()) {
-                    deleteAllFile(unRootWarPath);
+                    boolean isDelete = deleteAllFile(unRootWarPath);
+                    if (isDelete) {
+                        boolean isUnZIP = unZIP(rootWarPath, unRootWarPath);
+                        if (isUnZIP) {
+                            setConfig(unRootWarPath);
+                        }
+                    }
+                   // setConfig(unRootWarPath);
+
                 }
                 if (mJRadioBTUnDelete.isSelected()) {
-                    // unZIP(rootWarPath, unRootWarPath);
+                     unZIP(rootWarPath, unRootWarPath);
                 }
             }
         }
@@ -206,27 +220,39 @@ public class Main {
          *
          * @param unRootWarPath
          */
-        private void deleteAllFile(String unRootWarPath) {
-            File ROOT_file = new File(unRootWarPath);
-            File[] listFiles = ROOT_file.listFiles();
-            for (File file : listFiles) {
-                if (file.isDirectory()) {
-                    deleteAllFile(file.getAbsolutePath());
-                    //空文件夹直接删除
-                    file.delete();
-                    log.info(file.getAbsolutePath() + "文件夹删除成功!");
+        private boolean deleteAllFile(String unRootWarPath) {
+
+            try {
+                File ROOT_file = new File(unRootWarPath);
+                if (!ROOT_file.exists()) {
+                    return true;
                 }
-                //如果是文件直接删除
-                if (file.isFile()) {
-                    file.delete();
-                    log.info(file.getAbsolutePath() + "文件删除成功!");
+                File[] listFiles = ROOT_file.listFiles();
+                for (File file : listFiles) {
+                    if (file.isDirectory()) {
+                        deleteAllFile(file.getAbsolutePath());
+                        //空文件夹直接删除
+                        file.delete();
+                        log.info(file.getAbsolutePath() + "文件夹删除成功!");
+                    }
+                    //如果是文件直接删除
+                    if (file.isFile()) {
+                        file.delete();
+                        log.info(file.getAbsolutePath() + "文件删除成功!");
+                    }
                 }
+                //删除root目录
+                if (ROOT_file.listFiles().length == 0) {
+                    ROOT_file.delete();
+                    log.info(ROOT_file.getAbsolutePath() + "文件删除成功!");
+                    return true;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
             }
-            //删除root目录
-            if (ROOT_file.listFiles().length == 0) {
-                ROOT_file.delete();
-                log.info(ROOT_file.getAbsolutePath() + "文件删除成功!");
-            }
+            return false;
+
         }
 
         /**
@@ -235,16 +261,19 @@ public class Main {
          * @param rootWarPath   ROOT.war路径
          * @param unRootWarPath ROOT.war解压路径路径
          */
-        private void unZIP(String rootWarPath, String unRootWarPath) {
+        private boolean unZIP(String rootWarPath, String unRootWarPath) {
             try {
-                ZipFile zipFile = new ZipFile(rootWarPath, Charset.forName("GBK"));
                 long start = System.currentTimeMillis();
+                ZipFile zipFile = new ZipFile(rootWarPath, Charset.forName("GBK"));
                 Enumeration<? extends ZipEntry> entries = zipFile.entries();
                 int size = zipFile.size();
                 log.info("文件数：" + size);
                 while (entries.hasMoreElements()) {
                     ZipEntry zipEntry = entries.nextElement();
                     String zipEntryName = zipEntry.getName();
+                    long millis = zipEntry.getLastModifiedTime().toMillis();
+                    String string = zipEntry.getLastModifiedTime().toString();
+                    log.info(zipEntryName + " - " + string);
 
                     File decDir = new File(unRootWarPath);
                     if (!decDir.exists()) {
@@ -257,6 +286,9 @@ public class Main {
                     //解压文件如果是文件夹则创建文件夹
                     if (zipEntry.isDirectory()) {
                         outFile.mkdirs();
+                        //设置最后修改时间
+                        boolean setLastModified = outFile.setLastModified(millis);
+                        log.info("修改：" + setLastModified);
                         //如果是文件夹则创建文件夹跳出循环
                         continue;
                     }
@@ -271,14 +303,17 @@ public class Main {
                     }
                     decFOS.flush();
                     decFOS.close();
+                    boolean setLastModified = outFile.setLastModified(millis);
                     zipIS.close();
                     // log.info(zipEntryName);
                 }
                 long end = System.currentTimeMillis();
-                log.info("解压完毕 - 耗时:" + (end - start) + "ms");
+                log.info("解压完毕 - 耗时:" + (end - start) / 1000 + "s");
+                return true;
             } catch (IOException e) {
                 e.printStackTrace();
                 log.error("解压异常！- " + e.getMessage());
+                return false;
             }
         }
 
@@ -350,14 +385,49 @@ public class Main {
 
     }
 
-    private static void setConfig() {
+    private static void setConfig(String path) {
         Properties properties = new Properties();
         try {
-            properties.load(new FileInputStream(ROOT_Spring_Path));
-            properties.setProperty("common.db.url", "jdbc:mysql://localhost:3306/cr_4_0_6_100?useOldAliasMetadataBehavior=true&characterEncoding=utf-8");
+            log.info("正在修改spring.properties....");
+            String dbConfigPath = path + "\\WEB-INF\\classes\\config\\spring\\spring.properties";
+            File dbFile = new File(dbConfigPath);
+         //   FileInputStream stream = new FileInputStream(dbFile);
+            // properties.load(stream);
+
+            // 必须先用map将所有的内容先保存,不然一更新,原来的内容都没了
+ /*           properties.setProperty("common.db.url", "jdbc:mysql://localhost:3306/cr_4_0_6_100?useOldAliasMetadataBehavior=true&characterEncoding=utf-8");
             properties.setProperty("common.db.username", "root");
             properties.setProperty("common.db.password", "root");
+            properties.store(new FileOutputStream(dbFile), null);*/
 
+/*            InputStreamReader reader = new InputStreamReader(stream);
+            BufferedReader bufferedReader = new BufferedReader(reader);
+            String len;
+            while ((len = bufferedReader.readLine()) != null) {
+                // log.info(len);
+                String[] split = len.split("=", 2);
+                log.info(split.length + "");
+                if (split.length == 1) {
+                    continue;
+                }
+                log.info(split[0] + " - " + split[1]);
+            }*/
+            StringBuffer stringBuffer = new StringBuffer();
+            stringBuffer.append("hibernate.dialect=org.hibernate.dialect.MySQLInnoDBDialect\n");
+            stringBuffer.append("hibernate.show_sql=false\n");
+            stringBuffer.append("hibernate.connection.release_mode=after_transaction\n");
+            stringBuffer.append("hibernate.cacheProvider=org.hibernate.cache.EhCacheProvider\n");
+            stringBuffer.append("\n");
+            stringBuffer.append("common.db.driverClassName=com.mysql.jdbc.Driver\n");
+            stringBuffer.append("common.db.url=jdbc:mysql://localhost:3306/cr_4_0_6_100?useOldAliasMetadataBehavior=true&characterEncoding=utf-8\n");
+            stringBuffer.append("common.db.username=root\n");
+            stringBuffer.append("common.db.password=root");
+
+            FileOutputStream fileOutputStream = new FileOutputStream(dbFile);
+            fileOutputStream.write(stringBuffer.toString().getBytes());
+            fileOutputStream.flush();
+            fileOutputStream.close();
+            log.info("修改spring.properties成功!");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -365,27 +435,39 @@ public class Main {
         DocumentBuilderFactory builder = DocumentBuilderFactory.newInstance();
         try {
             DocumentBuilder documentBuilder = builder.newDocumentBuilder();
-            Document parse = documentBuilder.parse(new FileInputStream(ROOT_Publish_Path));
-
-            Element documentElement = parse.getDocumentElement();
+            log.info("正在修改publish.cfg.xml....");
+            String publishXml = path + "\\WEB-INF\\classes\\config\\publish.cfg.xml";
+            FileInputStream fileInputStream = new FileInputStream(publishXml);
+            Document document = documentBuilder.parse(fileInputStream);
+            Element documentElement = document.getDocumentElement();
             NodeList childNodes = documentElement.getChildNodes();
 
             for (int i = 0; i < childNodes.getLength(); i++) {
-
                 Node item = childNodes.item(i);
-
                 //  System.out.println(item.getNodeName() +  ": " + item.getTextContent());
                 if (item.getNodeName().equals("baseResourcePath")) {
                     System.out.println(item.getTextContent());
                     // TODO: 2018/4/2 设置资源文件路径
-                    item.setTextContent("");
+                    item.setTextContent("F:\\ThinkWin\\ThinkWinCRV3.5.0\\apache/htdocs/res/");
+                    break;
                 }
             }
+
+            Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            DOMSource source = new DOMSource();
+            source.setNode(document);
+            StreamResult streamResult = new StreamResult(new FileWriter(publishXml));
+            transformer.transform(source, streamResult);
+            log.info("修改publish.cfg.xml成功!");
         } catch (ParserConfigurationException e) {
             e.printStackTrace();
         } catch (SAXException e) {
             e.printStackTrace();
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (TransformerConfigurationException e) {
+            e.printStackTrace();
+        } catch (TransformerException e) {
             e.printStackTrace();
         }
     }
@@ -451,5 +533,15 @@ public class Main {
         return true;
     }
 
+    public static String string2Unicode(String string) {
+        StringBuffer unicode = new StringBuffer();
+        for (int i = 0; i < string.length(); i++) {
+            // 取出每一个字符
+            char c = string.charAt(i);
+            // 转换为unicode
+            unicode.append("\\u" + Integer.toHexString(c));
+        }
+        return unicode.toString();
+    }
 
 }
